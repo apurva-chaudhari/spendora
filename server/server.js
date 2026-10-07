@@ -8,13 +8,16 @@ const authRoutes = require("./routes/authRoutes");
 const app = express();
 
 const expenseRoutes = require("./routes/expenseRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 app.use(cors());
 app.use(express.json());
 
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 app.get("/", (req, res) => {
     res.json({
