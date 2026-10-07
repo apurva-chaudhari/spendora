@@ -1,208 +1,318 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  ArrowDownRight,
+  ArrowUpRight,
   Brain,
-  TrendingUp,
   Lightbulb,
+  Plus,
   RefreshCw,
-  AlertCircle,
+  Sparkles,
+  Target,
+  TrendingUp,
 } from "lucide-react";
 
+import AppLayout from "../components/AppLayout";
+import { Alert, Button, Card, EmptyState, Skeleton } from "../components/ui";
 import aiService from "../services/aiService";
+import { formatCurrency, getCategoryStyle } from "../lib/format";
+
+// Build practical recommendations from the real numbers, plus any the AI returns.
+const buildRecommendations = (spendingData, aiInsights) => {
+  const fromAI = Array.isArray(aiInsights?.recommendations)
+    ? aiInsights.recommendations
+    : [];
+  if (fromAI.length) return fromAI;
+
+  const current = spendingData?.currentMonth || { total: 0, categories: {} };
+  const previous = spendingData?.previousMonth || { total: 0, categories: {} };
+  const recs = [];
+
+  const sorted = Object.entries(current.categories || {}).sort((a, b) => b[1] - a[1]);
+  if (sorted.length && current.total > 0) {
+    const [name, amount] = sorted[0];
+    const share = Math.round((amount / current.total) * 100);
+    if (share >= 40) {
+      recs.push(
+        `${name} makes up ${share}% of this month's spending. Setting a monthly limit for it is the easiest place to save.`,
+      );
+    }
+  }
+
+  if (previous.total > 0 && current.total > previous.total * 1.1) {
+    recs.push(
+      "Spending is up compared to last month. Review recent transactions for purchases you could skip or postpone.",
+    );
+  } else if (previous.total > 0 && current.total < previous.total * 0.9) {
+    recs.push(
+      "You're spending less than last month. Consider moving the difference into savings.",
+    );
+  }
+
+  const growing = Object.entries(current.categories || {})
+    .filter(([cat, amt]) => (previous.categories?.[cat] || 0) > 0 && amt > previous.categories[cat] * 1.3)
+    .map(([cat]) => cat);
+  if (growing.length) {
+    recs.push(`Watch ${growing.slice(0, 2).join(" and ")}: spending there grew sharply since last month.`);
+  }
+
+  if (recs.length === 0) {
+    recs.push("Keep logging expenses regularly so Spendora can give you sharper recommendations.");
+  }
+  return recs;
+};
 
 const Insights = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadInsights = async () => {
+  const loadInsights = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-
-      const result = await aiService.getSpendingInsights();
-
-      setData(result);
-    } catch (error) {
-      console.error("Failed to load AI insights:", error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to generate spending insights.",
-      );
+      setData(await aiService.getSpendingInsights());
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to generate spending insights.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadInsights();
-  }, []);
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 2,
-    }).format(amount || 0);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
-            <RefreshCw className="w-8 h-8 mx-auto text-blue-600 animate-spin" />
-
-            <p className="mt-4 text-slate-600">Analyzing your spending...</p>
-
-            <p className="mt-1 text-sm text-slate-400">
-              Spendora AI is preparing your insights.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-white border border-red-200 rounded-2xl p-8">
-            <div className="flex items-center gap-3 text-red-600">
-              <AlertCircle className="w-6 h-6" />
-
-              <h2 className="text-lg font-semibold">
-                Unable to generate insights
-              </h2>
-            </div>
-
-            <p className="mt-3 text-slate-600">{error}</p>
-
-            <button
-              onClick={loadInsights}
-              className="mt-5 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, [loadInsights]);
 
   const spendingData = data?.spendingData;
   const aiInsights = data?.aiInsights;
+  const current = spendingData?.currentMonth?.total || 0;
+  const previous = spendingData?.previousMonth?.total || 0;
+  const diff = current - previous;
+  const pct = previous > 0 ? Math.round((diff / previous) * 100) : null;
+
+  const categories = useMemo(() => {
+    const cur = spendingData?.currentMonth?.categories || {};
+    const prev = spendingData?.previousMonth?.categories || {};
+    return Object.entries(cur)
+      .map(([name, amount]) => ({ name, amount, previous: prev[name] || 0 }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [spendingData]);
+
+  const recommendations = useMemo(
+    () => (data ? buildRecommendations(spendingData, aiInsights) : []),
+    [data, spendingData, aiInsights],
+  );
+
+  const hasNoData = !loading && !error && current === 0 && previous === 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <Brain className="w-7 h-7 text-blue-600" />
-            </div>
+    <AppLayout
+      title="AI insights"
+      subtitle="Personalized analysis of your spending, powered by AI."
+      maxWidth="max-w-5xl"
+      actions={
+        <Button variant="secondary" onClick={loadInsights} disabled={loading}>
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </Button>
+      }
+    >
+      {error && (
+        <Alert
+          type="error"
+          action={
+            <button onClick={loadInsights} className="shrink-0 font-medium underline">
+              Try again
+            </button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
 
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">
-                AI Spending Insights
-              </h1>
-
-              <p className="text-slate-500 mt-1">
-                Understand your spending with personalized AI-powered analysis.
-              </p>
+      {loading && (
+        <div className="space-y-6" aria-busy="true">
+          <Card className="p-6">
+            <div className="flex items-center gap-3 text-sm font-medium text-brand-700">
+              <Sparkles size={18} className="animate-pulse" />
+              Analyzing your spending...
             </div>
+            <Skeleton className="mt-4 h-5 w-full" />
+            <Skeleton className="mt-2 h-5 w-2/3" />
+          </Card>
+          <div className="grid gap-4 md:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="p-5">
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <Skeleton className="mt-4 h-4 w-full" />
+                <Skeleton className="mt-2 h-4 w-4/5" />
+              </Card>
+            ))}
           </div>
         </div>
+      )}
 
-        {/* Summary */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-50 rounded-xl">
-              <Lightbulb className="w-6 h-6 text-blue-600" />
-            </div>
+      {hasNoData && (
+        <Card>
+          <EmptyState
+            icon={Brain}
+            title="Not enough data for insights"
+            description="Add expenses for this month and Spendora will analyze your habits."
+            action={
+              <Link
+                to="/expenses/add"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
+              >
+                <Plus size={16} />
+                Add expense
+              </Link>
+            }
+          />
+        </Card>
+      )}
 
-            <div>
-              <p className="text-sm font-medium text-slate-500">AI Summary</p>
-
-              <p className="mt-2 text-lg font-semibold text-slate-900">
-                {aiInsights?.summary || "No summary available."}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Insights */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          {aiInsights?.insights?.map((insight, index) => (
-            <div
-              key={index}
-              className="bg-white border border-slate-200 rounded-2xl p-6"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-slate-100 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-slate-700" />
-                </div>
-
-                <span className="text-sm font-medium text-slate-500">
-                  Insight {index + 1}
-                </span>
+      {data && !loading && !error && !hasNoData && (
+        <div className="space-y-6">
+          {/* AI summary */}
+          <Card className="overflow-hidden">
+            <div className="flex items-start gap-4 bg-gradient-to-br from-brand-50 to-white p-5 sm:p-6">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
+                <Lightbulb size={22} />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  AI summary
+                </p>
+                <p className="mt-1.5 text-base font-medium leading-relaxed text-slate-900 sm:text-lg">
+                  {aiInsights?.summary || "No summary available."}
+                </p>
               </div>
-
-              <p className="text-slate-800 leading-relaxed">{insight}</p>
             </div>
-          ))}
-        </div>
+          </Card>
 
-        {/* Spending Comparison */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Spending Comparison
-              </h2>
+          {/* Month comparison */}
+          <section className="grid gap-4 sm:grid-cols-3">
+            <Card className="p-5">
+              <p className="text-sm text-slate-500">This month</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(current)}</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-slate-500">Last month</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(previous)}</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-slate-500">Change</p>
+              {pct === null ? (
+                <p className="mt-2 text-sm text-slate-500">No previous month to compare.</p>
+              ) : (
+                <p
+                  className={`mt-2 flex items-center gap-1 text-2xl font-semibold ${
+                    diff > 0 ? "text-red-600" : "text-emerald-600"
+                  }`}
+                >
+                  {diff > 0 ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />}
+                  {Math.abs(pct)}%
+                </p>
+              )}
+            </Card>
+          </section>
 
-              <p className="text-sm text-slate-500 mt-1">
-                Current month vs previous month
-              </p>
-            </div>
+          {/* Insight cards */}
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">Key insights</h2>
+            {aiInsights?.insights?.length ? (
+              <div className="grid gap-4 md:grid-cols-3">
+                {aiInsights.insights.map((insight, index) => (
+                  <Card key={index} className="p-5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                      <TrendingUp size={18} />
+                    </span>
+                    <p className="mt-4 text-sm leading-relaxed text-slate-700">{insight}</p>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <EmptyState
+                  icon={Sparkles}
+                  title="No insights generated"
+                  description="Try refreshing to generate a new analysis."
+                />
+              </Card>
+            )}
+          </section>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Categories */}
+            <Card className="p-5 sm:p-6">
+              <h2 className="text-sm font-semibold text-slate-900">Spending categories</h2>
+              <p className="mt-0.5 text-xs text-slate-500">This month vs last month</p>
+              {categories.length === 0 ? (
+                <p className="mt-6 text-sm text-slate-500">No category spending this month yet.</p>
+              ) : (
+                <ul className="mt-5 space-y-4">
+                  {categories.map((cat) => {
+                    const share = current ? (cat.amount / current) * 100 : 0;
+                    const color = getCategoryStyle(cat.name).color;
+                    const change = cat.previous
+                      ? Math.round(((cat.amount - cat.previous) / cat.previous) * 100)
+                      : null;
+                    return (
+                      <li key={cat.name}>
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="flex items-center gap-2 font-medium text-slate-700">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                            {cat.name}
+                          </span>
+                          <span className="flex items-center gap-2">
+                            {change !== null && (
+                              <span
+                                className={`text-xs font-medium ${
+                                  change > 0 ? "text-red-600" : "text-emerald-600"
+                                }`}
+                              >
+                                {change > 0 ? "+" : ""}
+                                {change}%
+                              </span>
+                            )}
+                            <span className="font-semibold text-slate-900">
+                              {formatCurrency(cat.amount)}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${share}%`, backgroundColor: color }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+
+            {/* Recommendations */}
+            <Card className="p-5 sm:p-6">
+              <h2 className="text-sm font-semibold text-slate-900">Recommendations</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Suggested next steps</p>
+              <ul className="mt-5 space-y-3">
+                {recommendations.map((rec, i) => (
+                  <li key={i} className="flex gap-3 rounded-lg bg-slate-50 p-3.5">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                      <Target size={13} />
+                    </span>
+                    <p className="text-sm leading-relaxed text-slate-700">{rec}</p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Current Month */}
-            <div className="border border-slate-200 rounded-xl p-5">
-              <p className="text-sm text-slate-500">Current Month</p>
-
-              <p className="text-2xl font-bold text-slate-900 mt-2">
-                {formatCurrency(spendingData?.currentMonth?.total)}
-              </p>
-            </div>
-
-            {/* Previous Month */}
-            <div className="border border-slate-200 rounded-xl p-5">
-              <p className="text-sm text-slate-500">Previous Month</p>
-
-              <p className="text-2xl font-bold text-slate-900 mt-2">
-                {formatCurrency(spendingData?.previousMonth?.total)}
-              </p>
-            </div>
-          </div>
         </div>
-
-        {/* Refresh */}
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={loadInsights}
-            className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 bg-white text-slate-700 rounded-lg hover:bg-slate-50 transition"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh Insights
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </AppLayout>
   );
 };
 

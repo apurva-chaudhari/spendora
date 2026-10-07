@@ -1,1 +1,39 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Brand: deep teal */
+  --color-brand-50: #effcf9;
+  --color-brand-100: #d3f6ee;
+  --color-brand-200: #a9ebdc;
+  --color-brand-300: #72d9c4;
+  --color-brand-400: #3dbfa8;
+  --color-brand-500: #1da38f;
+  --color-brand-600: #0f8a7a;
+  --color-brand-700: #0f6e64;
+  --color-brand-800: #0f5851;
+  --color-brand-900: #0e4944;
+
+  /* Ink: deep navy for sidebar and hero surfaces */
+  --color-ink-700: #1b3557;
+  --color-ink-800: #12284a;
+  --color-ink-900: #0b1c38;
+  --color-ink-950: #07132a;
+
+  /* Gold accent */
+  --color-gold-300: #fcd581;
+  --color-gold-400: #f6bf4a;
+  --color-gold-500: #e8a317;
+}
+
+html,
+body {
+  background: #f2f6fa;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-ink-900);
+}

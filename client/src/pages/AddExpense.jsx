@@ -1,148 +1,248 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { IndianRupee } from "lucide-react";
+
+import AppLayout from "../components/AppLayout";
+import {
+  Alert,
+  Button,
+  Card,
+  Field,
+  inputClass,
+  inputErrorClass,
+} from "../components/ui";
 import expenseService from "../services/expenseService";
+import { CATEGORIES, PAYMENT_METHODS, formatCurrency, todayISO } from "../lib/format";
+
+const emptyForm = () => ({
+  title: "",
+  amount: "",
+  category: "",
+  date: todayISO(),
+  paymentMethod: "UPI",
+  description: "",
+});
 
 const AddExpense = () => {
-    const navigate = useNavigate();
+  const [formData, setFormData] = useState(emptyForm);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    const [formData, setFormData] = useState({
-        title: "",
-        amount: "",
-        category: "",
-        date: "",
-        paymentMethod: "Other",
-        description: "",
-    });
+  const validate = (data) => {
+    const errors = {};
+    if (!data.title.trim()) errors.title = "Give this expense a title.";
+    else if (data.title.trim().length > 100)
+      errors.title = "Title must be 100 characters or fewer.";
 
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+    if (data.amount === "") errors.amount = "Enter an amount.";
+    else if (Number.isNaN(Number(data.amount))) errors.amount = "Amount must be a number.";
+    else if (Number(data.amount) <= 0) errors.amount = "Amount must be greater than 0.";
+    else if (Number(data.amount) > 100000000) errors.amount = "That amount looks too large.";
 
-    const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value,
-        });
-    };
+    if (!data.category) errors.category = "Choose a category.";
+    if (!data.date) errors.date = "Pick a date.";
+    return errors;
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((current) => ({ ...current, [name]: value }));
+    if (fieldErrors[name]) setFieldErrors((current) => ({ ...current, [name]: "" }));
+    if (error) setError("");
+    if (success) setSuccess("");
+  };
 
-        setError("");
-        setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        try {
-            await expenseService.createExpense({
-                ...formData,
-                amount: Number(formData.amount),
-            });
+    const errors = validate(formData);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
-            navigate("/expenses");
-        } catch (error) {
-            setError(
-                error.response?.data?.message ||
-                "Failed to add expense."
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
+    setError("");
+    setSuccess("");
+    setLoading(true);
 
-    return (
-        <div>
-            <h1>Add Expense</h1>
+    try {
+      await expenseService.createExpense({
+        ...formData,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        amount: Number(formData.amount),
+      });
 
-            {error && <p>{error}</p>}
+      setSuccess(
+        `Saved "${formData.title.trim()}" for ${formatCurrency(formData.amount)}.`,
+      );
+      setFormData(emptyForm());
+      setFieldErrors({});
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to add expense. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            <form onSubmit={handleSubmit}>
+  const cls = (name) => `${inputClass} ${fieldErrors[name] ? inputErrorClass : ""}`;
+  const aria = (name) => ({
+    "aria-invalid": !!fieldErrors[name],
+    "aria-describedby": fieldErrors[name] ? `${name}-error` : undefined,
+  });
 
-                <div>
-                    <label>Title</label>
+  return (
+    <AppLayout
+      title="Add expense"
+      subtitle="Record a new expense in a few seconds."
+      maxWidth="max-w-3xl"
+    >
+      <Card className="p-5 sm:p-8">
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          {success && (
+            <Alert
+              type="success"
+              onClose={() => setSuccess("")}
+              action={
+                <Link to="/expenses" className="shrink-0 font-medium underline">
+                  View expenses
+                </Link>
+              }
+            >
+              {success}
+            </Alert>
+          )}
+          {error && (
+            <Alert type="error" onClose={() => setError("")}>
+              {error}
+            </Alert>
+          )}
+
+          <Field label="Title" htmlFor="title" error={fieldErrors.title}>
+            <input
+              id="title"
+              name="title"
+              type="text"
+              value={formData.title}
+              onChange={handleChange}
+              placeholder="e.g. Grocery shopping"
+              className={cls("title")}
+              {...aria("title")}
+            />
+          </Field>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            <Field label="Amount" htmlFor="amount" error={fieldErrors.amount}>
+              <div className="relative">
+                <IndianRupee
+                  size={15}
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  className={`${cls("amount")} pl-9`}
+                  {...aria("amount")}
+                />
+              </div>
+            </Field>
+
+            <Field label="Date" htmlFor="date" error={fieldErrors.date}>
+              <input
+                id="date"
+                name="date"
+                type="date"
+                value={formData.date}
+                onChange={handleChange}
+                className={cls("date")}
+                {...aria("date")}
+              />
+            </Field>
+          </div>
+
+          <Field label="Category" htmlFor="category" error={fieldErrors.category}>
+            <select
+              id="category"
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className={cls("category")}
+              {...aria("category")}
+            >
+              <option value="">Select a category</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-medium text-slate-700">
+              Payment method
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {PAYMENT_METHODS.map((method) => {
+                const selected = formData.paymentMethod === method;
+                return (
+                  <label
+                    key={method}
+                    className={`cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-brand-100 ${
+                      selected
+                        ? "border-brand-600 bg-brand-50 text-brand-700"
+                        : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
                     <input
-                        type="text"
-                        name="title"
-                        value={formData.title}
-                        onChange={handleChange}
-                        placeholder="e.g. Grocery Shopping"
-                        required
+                      type="radio"
+                      name="paymentMethod"
+                      value={method}
+                      checked={selected}
+                      onChange={handleChange}
+                      className="sr-only"
                     />
-                </div>
+                    {method}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
 
-                <div>
-                    <label>Amount</label>
-                    <input
-                        type="number"
-                        name="amount"
-                        value={formData.amount}
-                        onChange={handleChange}
-                        placeholder="Enter amount"
-                        min="0"
-                        required
-                    />
-                </div>
+          <Field label="Notes" htmlFor="description" optional>
+            <textarea
+              id="description"
+              name="description"
+              rows={3}
+              value={formData.description}
+              onChange={handleChange}
+              placeholder="Anything worth remembering?"
+              className={inputClass}
+            />
+          </Field>
 
-                <div>
-                    <label>Category</label>
-                    <select
-                        name="category"
-                        value={formData.category}
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="">Select category</option>
-                        <option value="Food">Food</option>
-                        <option value="Shopping">Shopping</option>
-                        <option value="Travel">Travel</option>
-                        <option value="Bills">Bills</option>
-                        <option value="Entertainment">Entertainment</option>
-                        <option value="Health">Health</option>
-                        <option value="Education">Education</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>Date</label>
-                    <input
-                        type="date"
-                        name="date"
-                        value={formData.date}
-                        onChange={handleChange}
-                        required
-                    />
-                </div>
-
-                <div>
-                    <label>Payment Method</label>
-                    <select
-                        name="paymentMethod"
-                        value={formData.paymentMethod}
-                        onChange={handleChange}
-                    >
-                        <option value="Cash">Cash</option>
-                        <option value="UPI">UPI</option>
-                        <option value="Card">Card</option>
-                        <option value="Net Banking">Net Banking</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>Description</label>
-                    <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        placeholder="Optional description"
-                    />
-                </div>
-
-                <button type="submit" disabled={loading}>
-                    {loading ? "Saving..." : "Add Expense"}
-                </button>
-
-            </form>
-        </div>
-    );
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
+            <Link
+              to="/expenses"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </Link>
+            <Button type="submit" loading={loading}>
+              {loading ? "Saving..." : "Save expense"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </AppLayout>
+  );
 };
 
 export default AddExpense;
