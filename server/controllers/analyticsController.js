@@ -73,7 +73,95 @@ const getSummary = async (req, res) => {
         });
     }
 };
+const getMonthlySpending = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const expenses = await Expense.find({ userId });
+
+        const monthlyData = {};
+
+        expenses.forEach((expense) => {
+            const date = new Date(expense.date);
+
+            const month = date.toLocaleString("default", {
+                month: "short",
+            });
+
+            const year = date.getFullYear();
+
+            const key = `${month} ${year}`;
+
+            if (!monthlyData[key]) {
+                monthlyData[key] = 0;
+            }
+
+            monthlyData[key] += expense.amount;
+        });
+
+        const monthlySpending = Object.entries(monthlyData).map(
+            ([month, amount]) => ({
+                month,
+                amount,
+            })
+        );
+
+        res.status(200).json({
+            monthlySpending,
+        });
+    } catch (error) {
+        console.error(
+            "Monthly analytics error:",
+            error.message
+        );
+
+        res.status(500).json({
+            message: "Server error while calculating monthly spending.",
+        });
+    }
+};
+const getCategorySpending = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const expenses = await Expense.find({ userId });
+
+        const categoryData = {};
+
+        expenses.forEach((expense) => {
+            const category = expense.category;
+
+            if (!categoryData[category]) {
+                categoryData[category] = 0;
+            }
+
+            categoryData[category] += expense.amount;
+        });
+
+        const categorySpending = Object.entries(categoryData).map(
+            ([category, amount]) => ({
+                category,
+                amount,
+            })
+        );
+
+        res.status(200).json({
+            categorySpending,
+        });
+    } catch (error) {
+        console.error(
+            "Category analytics error:",
+            error.message
+        );
+
+        res.status(500).json({
+            message: "Server error while calculating category spending.",
+        });
+    }
+};
 
 module.exports = {
     getSummary,
+    getMonthlySpending,
+    getCategorySpending,
 };
