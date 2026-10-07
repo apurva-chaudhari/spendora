@@ -1,25 +1,78 @@
 # Spendora
 
-Understand your spending. Make better decisions.
+> Understand your spending. Make better decisions.
 
-Spendora is a MERN-based expense management application with AI-powered bill scanning, spending analytics, and personalized financial insights.
+Spendora is a MERN-based expense management application that helps users track expenses, scan bills using OCR and AI, analyze spending patterns, and interact with an AI-powered spending assistant.
 
-## Tech Stack
+## 🚀 Features
 
+- 🔐 User registration and JWT authentication
+- 💰 Add, edit and delete expenses
+- 📊 Monthly spending analytics
+- 📈 Category-wise spending analysis
+- 🧾 AI-powered bill scanning
+- 🔍 OCR-based bill data extraction
+- 🤖 Automatic expense categorization
+- 💡 AI-powered spending insights
+- 💬 Ask Spendora — conversational spending assistant
+- 📱 Responsive user interface
+- 🔒 Protected API routes
+
+## 🛠️ Tech Stack
+
+### Frontend
 - React.js
+- React Router
+- Tailwind CSS
+- Recharts
+- Lucide React
+- Axios
+
+### Backend
 - Node.js
 - Express.js
 - MongoDB
-- JWT Authentication
-- Recharts
-- OCR / AI APIs
+- Mongoose
+- JWT
+- bcryptjs
+- Multer
 
-## Features
+### AI / OCR
+- OpenAI API
+- Tesseract.js
 
-- User authentication
-- Expense management
-- Expense analytics
-- AI bill scanning
-- Automatic expense categorization
-- AI spending insights
-- Ask Spendora
+### Development
+- Git
+- GitHub
+- MongoDB Atlas
+- Vite
+
+## 🏗️ Project Structure
+
+```text
+Spendora
+│
+├── client
+│   ├── src
+│   │   ├── components
+│   │   ├── pages
+│   │   ├── services
+│   │   ├── lib
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   │
+│   └── package.json
+│
+├── server
+│   ├── config
+│   ├── controllers
+│   ├── middleware
+│   ├── models
+│   ├── routes
+│   ├── services
+│   ├── uploads
+│   ├── server.js
+│   └── package.json
+│
+├── .gitignore
+└── README.md
