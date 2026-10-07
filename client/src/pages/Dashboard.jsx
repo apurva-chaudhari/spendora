@@ -63,6 +63,14 @@ const Dashboard = () => {
           <button onClick={() => navigate("/expenses")}>Expenses</button>
 
           <button onClick={() => navigate("/expenses/add")}>Add Expense</button>
+
+          <button onClick={() => navigate("/scan-bill")}>Scan Bill</button>
+
+          <button onClick={() => navigate("/insights")}>AI Insights</button>
+
+          <button onClick={() => navigate("/ask-spendora")}>
+            Ask Spendora
+          </button>
         </nav>
         <h2>Dashboard</h2>
 
@@ -104,6 +112,7 @@ const Dashboard = () => {
           <button onClick={() => navigate("/expenses/add")}>Add Expense</button>
 
           <button onClick={() => navigate("/expenses")}>View Expenses</button>
+          <button onClick={() => navigate("/scan-bill")}>Scan Bill</button>
         </section>
         <section>
           <h2>Recent Expenses</h2>

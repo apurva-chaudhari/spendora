@@ -9,6 +9,8 @@ const app = express();
 
 const expenseRoutes = require("./routes/expenseRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const billRoutes = require("./routes/billRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 app.use(cors());
 app.use(express.json());
@@ -17,7 +19,9 @@ app.use(express.json());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/bills", billRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
     res.json({

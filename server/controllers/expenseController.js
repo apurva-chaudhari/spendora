@@ -1,4 +1,5 @@
 const Expense = require("../models/Expense");
+const { categorizeExpenseSmart } = require("../services/aiService");
 
 const createExpense = async (req, res) => {
     try {
@@ -16,12 +17,15 @@ const createExpense = async (req, res) => {
                 message: "Title, amount, category and date are required"
             });
         }
-
+        const aiCategory = await categorizeExpenseSmart(
+            title,
+            description
+        );
         const expense = await Expense.create({
             userId: req.user.userId,
             title,
             amount,
-            category,
+            category: aiCategory,
             date,
             paymentMethod,
             description,
